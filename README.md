@@ -33,8 +33,14 @@ These test were conducted with small osbtacles sizes like the ones above:
 ![VAE Perf](images/vae_latent_space_size_loss_comparision.png)
 ![VAE Perf](images/small_obstacles_latent_size_variation.png)
 
-### Evaluated on Large Obstacles1
+### Evaluated on Large Obstacles
+
+This network was trained with larger, but less, obstacles (4). 
+In theory, latent representation would be lower dimensional, even with a similar number of cells occupied
 ![Large VAE Perf](images/big_obs_vae_loss.png)
+![Large VAE Perf](images/big_obs_vae_in_distribution.png)
+
+I also wanted to evalute the model on out of distribution data, so I ran it against environmnents with 8 (large) obstacles to see performance.
 ![Large VAE Perf](images/big_obs_reconstruction.png)
 
 ## References:
