@@ -19,6 +19,7 @@ class OccupancyGridGenerator:
         self.nb_obstacles = nb_obstacles
 
         self.obstacle_sizes = [(1, 2), (2, 2), (1, 3), (2, 3)]
+        self.obstacle_sizes = [2 * size for size in self.obstacle_sizes]
 
     def sample(self) -> np.ndarray:
         """

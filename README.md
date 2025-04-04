@@ -18,6 +18,9 @@ My first iteration was somewhat successful, but I ultimately decided I would ins
 
 ![Autoencoder Representation](images/reconstructed_ogm_with_autoencoder.png)
 
+A more refined version trained with larger obstacles and 4 times as much data
+![Refined Autoencoder](images/AE_larger_dataset.png)
+
 ## References:
 
 [1] S. Karaman and E. Frazzoli, “Sampling-based algorithms for optimal motion planning,” The International Journal of Robotics Research, vol. 30, no. 7, pp. 846–894, Jun. 2011, doi: 10.1177/0278364911406761.
@@ -25,3 +28,8 @@ My first iteration was somewhat successful, but I ultimately decided I would ins
 [2] J. J. Johnson, L. Li, F. Liu, A. H. Qureshi, and M. C. Yip, “Dynamically Constrained Motion Planning Networks for Non-Holonomic Robots,” 2020, arXiv. doi: 10.48550/ARXIV.2008.05112.
 
 [3] https://github.com/FelicienC/RRT-Dubins for the files dubins.py and environment.py
+
+[4] D. P. Kingma and M. Welling, “Auto-Encoding Variational Bayes,” 2013, arXiv. doi: 10.48550/ARXIV.1312.6114.
+
+[5] D. Bank, N. Koenigstein, and R. Giryes, “Autoencoders,” 2020, arXiv. doi: 10.48550/ARXIV.2003.05991.
+
