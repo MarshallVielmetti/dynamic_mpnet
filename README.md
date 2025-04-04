@@ -21,6 +21,13 @@ My first iteration was somewhat successful, but I ultimately decided I would ins
 A more refined version trained with larger obstacles and 4 times as much data
 ![Refined Autoencoder](images/AE_larger_dataset.png)
 
+### Variational Autoencoder
+Switching to a VAE approach improved performance.
+![VAE](images/vae_reconstruction.png)
+
+Can sample from the VAE latent space, which creates similar maps:
+![VAE Samples](images/vae_sampling.png)
+
 ## References:
 
 [1] S. Karaman and E. Frazzoli, “Sampling-based algorithms for optimal motion planning,” The International Journal of Robotics Research, vol. 30, no. 7, pp. 846–894, Jun. 2011, doi: 10.1177/0278364911406761.
