@@ -3,6 +3,8 @@ Dynamic Motion Planning Net (Dynamic MPNet) Implemented for a Dubins vehicle
 
 ## RRT* Implementation for a Dubins Vehicle
 
+| | |
+| --- | --- |
 | ![Grid Environment](images/grid_env_rrt_.png) | ![Static Environment](images/static_env_rrt.png) |
 
 ## Training Grid Environment Generation
