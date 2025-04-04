@@ -60,6 +60,16 @@ class CNNEncoder(nn.Module):
 
         x = F.prelu(self.conv3(x))
 
+        print(f"Shape after conv3: {x.shape}")
+        # Flatten the tensor
+        x = x.view(x.size(0), -1)
+        print(f"Shape after flattening: {x.shape}")
+
+        # Pass through the fully connected layer
+        x = self.fc1(x)
+        print(f"Shape after fc1: {x.shape}")
+        
+
         return x
 
 class CNNDecoder(nn.Module):
