@@ -293,9 +293,9 @@ def train_autoencoder(
         train_loss_i = train_step(encoder, decoder, train_loader, optimizer)
         val_loss_i = val_step(encoder, decoder, val_loader)
 
-        if epoch_i % 50 == 0:
+        if epoch_i % 10 == 0:
             print(
-                f"Epoch {epoch_i + 1}/{num_epochs} | Train Loss: {train_loss_i:.4f} | Val Loss: {val_loss_i:.4f}"
+                f"Epoch {epoch_i}/{num_epochs} | Train Loss: {train_loss_i:.4f} | Val Loss: {val_loss_i:.4f}"
             )
 
         train_losses.append(train_loss_i)

@@ -28,6 +28,15 @@ Switching to a VAE approach improved performance.
 Can sample from the VAE latent space, which creates similar maps:
 ![VAE Samples](images/vae_sampling.png)
 
+### VAE Performance by Latent Space
+These test were conducted with small osbtacles sizes like the ones above:
+![VAE Perf](images/vae_latent_space_size_loss_comparision.png)
+![VAE Perf](images/small_obstacles_latent_size_variation.png)
+
+### Evaluated on Large Obstacles1
+![Large VAE Perf](images/big_obs_vae_loss.png)
+![Large VAE Perf](images/big_obs_reconstruction.png)
+
 ## References:
 
 [1] S. Karaman and E. Frazzoli, “Sampling-based algorithms for optimal motion planning,” The International Journal of Robotics Research, vol. 30, no. 7, pp. 846–894, Jun. 2011, doi: 10.1177/0278364911406761.
