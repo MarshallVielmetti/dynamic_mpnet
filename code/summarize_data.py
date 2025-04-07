@@ -19,12 +19,6 @@ parser.add_argument(
     help="Directory where the data is stored",
 )
 
-parser.add_argument(
-    "--prune-failed",
-    action="store_true",
-    help="Delete directories which failed",
-)
-
 
 def main():
     """
@@ -59,6 +53,8 @@ def main():
     num_valid_maps = 0
     num_valid_trajectories = 0
 
+    delete_dirs = []
+
     for subdir in subdirs:
         meta_path = os.path.join(subdir, "metadata.json")
 
@@ -68,10 +64,7 @@ def main():
         # Check if the metadata file exists
         if not os.path.exists(meta_path):
             print(f"Metadata file {meta_path} does not exist.")
-
-            if args.prune_failed:
-                print(f"Deleting {subdir}...")
-                os.rmdir(subdir)
+            delete_dirs.append(subdir)
             continue
 
         # Load the metadata
@@ -108,6 +101,8 @@ def main():
         print(f"\t Number of maps: {meta['num_maps']}")
         print(f"\t Number of trajectories: {meta['num_trajectories']}")
         print(f"\t Directories: {meta['dirs']}")
+
+    print(f"\n\n To delete failed directories, run:\n rm -rf {delete_dirs}")
 
 
 if __name__ == "__main__":
