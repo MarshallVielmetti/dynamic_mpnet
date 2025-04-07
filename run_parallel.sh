@@ -14,6 +14,33 @@ function display_usage {
   exit 1
 }
 
+# Add a cleanup function for graceful shutdown
+function cleanup {
+  echo -e "\n\nReceived interrupt signal. Cleaning up containers..."
+  
+  # Stop all running containers
+  local running=0
+  for container_id in "${container_ids[@]}"; do
+    status=$(docker inspect --format='{{.State.Status}}' $container_id 2>/dev/null)
+    if [[ "$status" == "running" ]]; then
+      echo "  Stopping container ${container_id:0:12}..."
+      docker stop $container_id >/dev/null
+      ((running++))
+    fi
+  done
+  
+  # Remove all containers
+  echo "  Removing all containers..."
+  docker rm ${container_ids[@]} >/dev/null 2>&1
+  
+  # Final status
+  echo "Cleanup complete. Stopped $running running containers."
+  echo "Exiting."
+  exit 1
+}
+
+trap cleanup SIGINT
+
 # Handle arguments
 PYTHON_ARGS=""
 while [[ $# -gt 0 ]]; do
