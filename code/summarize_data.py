@@ -19,6 +19,14 @@ parser.add_argument(
     help="Directory where the data is stored",
 )
 
+parser.add_argument(
+    "--prune-failed",
+    type=bool,
+    default=False,
+    action="store_true",
+    help="Delete directories which failed",
+)
+
 
 def main():
     """
@@ -62,6 +70,10 @@ def main():
         # Check if the metadata file exists
         if not os.path.exists(meta_path):
             print(f"Metadata file {meta_path} does not exist.")
+
+            if args.prune_failed:
+                print(f"Deleting {subdir}...")
+                os.rmdir(subdir)
             continue
 
         # Load the metadata
