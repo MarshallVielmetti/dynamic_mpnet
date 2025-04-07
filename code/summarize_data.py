@@ -103,7 +103,7 @@ def main():
         print(f"\t Directories: {meta['dirs']}")
 
     print(
-        f"\n\n To delete failed directories, run:\n sudo rm -rf {[' '.join(dir) for dir in delete_dirs]}"
+        f"\n\n To delete failed directories, run:\n sudo rm -rf{[f" {dir}" for dir in delete_dirs]}"
     )
 
 
