@@ -102,9 +102,10 @@ def main():
         print(f"\t Number of trajectories: {meta['num_trajectories']}")
         print(f"\t Directories: {meta['dirs']}")
 
-    print(
-        f"\n\n To delete failed directories, run:\n sudo rm -rf{[f" {dir}" for dir in delete_dirs]}"
-    )
+    if len(delete_dirs) > 0:
+        print(
+            f"\n\n To delete failed directories, run:\n sudo rm -rf {' '.join(delete_dirs)}"
+        )
 
 
 if __name__ == "__main__":
