@@ -175,13 +175,18 @@ def create_rrt_data(
         map_trajectories = []
 
         for j in range(num_samples_per):
-            trajectory = generate_rrt_trajectory(rrt, map, rrt_iter)
+            try:
+                trajectory = generate_rrt_trajectory(rrt, map, rrt_iter)
 
-            if trajectory is None:
+                if trajectory is None:
+                    print(f"Failed to generate trajectory for map {i} iteration {j}")
+                    continue
+                else:
+                    map_trajectories.append(trajectory)
+            except Exception as e:
                 print(f"Failed to generate trajectory for map {i} iteration {j}")
+                print(e)
                 continue
-            else:
-                map_trajectories.append(trajectory)
 
         # Plot the map and all generated trajectories
         if do_plot:
