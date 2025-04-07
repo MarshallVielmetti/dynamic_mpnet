@@ -59,7 +59,7 @@ def main():
         meta_path = os.path.join(subdir, "metadata.json")
 
         subdir_id = subdir.split("/")[-1]
-        print(f"Analyzing {subdir_id}...")
+        # print(f"Analyzing {subdir_id}...")
 
         # Check if the metadata file exists
         if not os.path.exists(meta_path):
