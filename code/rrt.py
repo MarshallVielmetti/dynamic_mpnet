@@ -40,7 +40,13 @@ class DubinsRRT:
         Run the RRT* algorithm to find a path from start to goal
     """
 
-    def __init__(self, environment: StaticEnvironment, radius=2.0, debug=False):
+    def __init__(
+        self,
+        environment: StaticEnvironment,
+        radius=2.0,
+        debug=False,
+        point_separation=0.1,
+    ):
         self.env = environment
         self.start = None
         self.goal = None
@@ -53,7 +59,7 @@ class DubinsRRT:
         self.cost: list[float] = []  # cost (float)
         self.parent: list[int] = []  # parent (int)
 
-        self.planner = Dubins(radius=radius, point_separation=0.1)
+        self.planner = Dubins(radius=radius, point_separation=point_separation)
 
     def set_start(self, start):
         """
@@ -169,7 +175,8 @@ class DubinsRRT:
             return
 
         for vertex in self.vertices:
-            if self.cost_between(vertex, self.goal) < 0.3:
+            if euclidian_distance_squared(vertex, goal) < 0.5:
+                print("Goal Reached!")
                 return True
 
     def find_nearest_node(self, x_rand):
@@ -308,9 +315,10 @@ class DubinsRRT:
 
         Returns
         -------
-        tuple
-            list: List of points in the path
-            float: Total length of the path
+        list
+            List of points in the path
+        float
+            Total length of the path
         """
         # Find the nearest node to the goal
         # nearest_node = self.find_nearest_node(goal)
