@@ -21,8 +21,6 @@ parser.add_argument(
 
 parser.add_argument(
     "--prune-failed",
-    type=bool,
-    default=False,
     action="store_true",
     help="Delete directories which failed",
 )
