@@ -43,6 +43,17 @@ In theory, latent representation would be lower dimensional, even with a similar
 I also wanted to evalute the model on out of distribution data, so I ran it against environmnents with 8 (large) obstacles to see performance.
 ![Large VAE Perf](images/big_obs_reconstruction.png)
 
+## Reference Trajectory Generation
+Following the recommendations of the paper, I created a docker container for the project so RRT trajectory generation could be parallelized. (Python doesn't really support parallelism for CPU intensive work due to the GIL)
+
+In order to generate data, run the following (assuming docker installed):
+```
+docker build -t dynamic_mpnet .
+chmod +x ./run_parallel.sh
+./run_parallel.sh -n X -- --num_maps 10 --num_samples_per 20
+```
+Where X is the number of concurrent containers to run
+
 ## References:
 
 [1] S. Karaman and E. Frazzoli, “Sampling-based algorithms for optimal motion planning,” The International Journal of Robotics Research, vol. 30, no. 7, pp. 846–894, Jun. 2011, doi: 10.1177/0278364911406761.
