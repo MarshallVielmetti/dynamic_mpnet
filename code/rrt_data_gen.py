@@ -218,12 +218,17 @@ def create_rrt_data(
                 )
 
     if do_save:
-        with open(
-            f"{save_dir}/metadata.json",
-            "w",
-        ) as f:
-            json.dump(save_metadata, f, indent=4)
-            print(f"Saved metadata to {f.name}")
+        try:
+            with open(
+                f"{save_dir}/metadata.json",
+                "w",
+            ) as f:
+                json.dump(save_metadata, f, indent=4)
+                print(f"Saved metadata to {f.name}")
+        except Exception as e:
+            print(f"Failed to save metadata to {save_dir}/metadata.json")
+            print(e)
+            return
 
 
 import sys

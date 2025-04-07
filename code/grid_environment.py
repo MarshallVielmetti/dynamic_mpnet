@@ -80,7 +80,7 @@ class GridEnvironment:
         """
         x = np.random.rand() * self.dimensions[0]
         y = np.random.rand() * self.dimensions[1]
-        while not self.is_free(x, y):
+        while not self.is_free(x, y) or np.isnan(x) or np.isnan(y):
             x = np.random.rand() * self.dimensions[0]
             y = np.random.rand() * self.dimensions[1]
 
