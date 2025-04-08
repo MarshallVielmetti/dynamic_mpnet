@@ -85,6 +85,6 @@ class GridEnvironment:
             y = np.random.rand() * self.dimensions[1]
 
         if include_theta:
-            return x, y, np.random.rand() * 2 * np.pi
+            return x, y, np.random.rand() * 2 * np.pi - np.pi
         else:
             return x, y

@@ -52,7 +52,11 @@ docker build -t dynamic_mpnet .
 chmod +x ./run_parallel.sh
 ./run_parallel.sh -n X -- --num_maps 10 --num_samples_per 20
 ```
-Where X is the number of concurrent containers to run
+Where X is the number of concurrent containers to run. Once this completes, run:
+```
+python3 code/summarize_data.py
+```
+to generate a summary output of the generated data, including the number of distinct maps and trajectories generated.
 
 ## References:
 
