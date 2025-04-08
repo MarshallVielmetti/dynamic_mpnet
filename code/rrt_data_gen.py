@@ -43,7 +43,9 @@ def generate_rrt_trajectory(
 
     # Calculate theta for each point in the path
     path = [
-        (point[0], point[1], np.arctan2(point[1] - start[1], point[0] - start[0]))
+        np.array(
+            [point[0], point[1], np.arctan2(point[1] - start[1], point[0] - start[0])]
+        )
         for point in path
     ]
     # print(f"Shape of Start: {start}, {start.shape}")

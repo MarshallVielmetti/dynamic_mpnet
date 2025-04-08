@@ -73,6 +73,10 @@ class MultiStepTrajectoryDataset(Dataset):
                         sample_start : sample_start + MULTI_STEP_SIZE
                     ]
 
+                    if sampled_points.shape[1] != 3:
+                        print(f"Sampled points shape mismatch: {sampled_points.shape}")
+                        continue
+
                     # Transform the trajectory points to be relative to the center of the map
                     zero_point = sampled_points[0]
                     zero_point[0] = int(zero_point[0])
