@@ -37,21 +37,21 @@ class DynamicMPNet(nn.Module):
         # Define the model architecture
         self.fc1 = nn.Linear(embedding_dim + 2 * SHAPE_DIM, 128)
         self.prelu1 = nn.PReLU()
-        self.dropout1 = nn.Dropout(0.1)
+        self.dropout1 = nn.Dropout(0.05)
 
-        self.fc2 = nn.Linear(128, 128)
+        self.fc2 = nn.Linear(128, 256)
         self.prelu2 = nn.PReLU()
-        self.dropout2 = nn.Dropout(0.1)
+        self.dropout2 = nn.Dropout(0.05)
 
-        self.fc3 = nn.Linear(128, 128)
+        self.fc3 = nn.Linear(256, 256)
         self.prelu3 = nn.PReLU()
-        self.dropout3 = nn.Dropout(0.1)
+        self.dropout3 = nn.Dropout(0.05)
 
-        self.fc4 = nn.Linear(128, 128)
+        self.fc4 = nn.Linear(256, 256)
         self.prelu4 = nn.PReLU()
-        self.dropout4 = nn.Dropout(0.1)
+        self.dropout4 = nn.Dropout(0.05)
 
-        self.fc5 = nn.Linear(128, 128)
+        self.fc5 = nn.Linear(256, 128)
         self.prelu5 = nn.PReLU()
 
         self.fc6 = nn.Linear(128, SHAPE_DIM * output_steps)
