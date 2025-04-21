@@ -64,6 +64,9 @@ to generate a summary output of the generated data, including the number of dist
 Following the example set in class, to debug my model I overfit it to a handful of datapoints to ensure it could memorize and reconstruct those successfully. I was able to verify the model, and teh results looked like this:
 ![Overfitting Perf](images/model_validated_on_overfit.png)
 
+## Full Dataset
+After then training the model on the full dataset, it was able to get decent (?) performance. Here is an example of the model evaluated on 5 elements of the validation dataset:
+[!Validation Perf](images/500_epoch_validation_performance.png)
 
 ## References:
 
