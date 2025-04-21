@@ -58,6 +58,13 @@ python3 code/summarize_data.py
 ```
 to generate a summary output of the generated data, including the number of distinct maps and trajectories generated.
 
+## Dynamic MPNet
+
+## Model Validation
+Following the example set in class, to debug my model I overfit it to a handful of datapoints to ensure it could memorize and reconstruct those successfully. I was able to verify the model, and teh results looked like this:
+![Overfitting Perf](images/model_validated_on_overfit.png)
+
+
 ## References:
 
 [1] S. Karaman and E. Frazzoli, “Sampling-based algorithms for optimal motion planning,” The International Journal of Robotics Research, vol. 30, no. 7, pp. 846–894, Jun. 2011, doi: 10.1177/0278364911406761.

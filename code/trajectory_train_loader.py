@@ -221,12 +221,13 @@ class SingleStepTrajectoryDataset(Dataset):
                     ):
                         continue
 
+                    # Target pose is the pose to PREDICT
                     target_pose = trajectory[sample_start + self.SAMPLE_SKIPAHEAD]
                     goal_pose = None
 
                     # Progress down trajectory to find the first point outside of the 12x12 padded map, then
                     # return the last point inside the map
-                    for i in range(sample_start, len(trajectory)):
+                    for i in range(sample_start + SAMPLE_SKIPAHEAD, len(trajectory)):
                         if (
                             abs(trajectory[i][0] - start_pose[0]) > self.MAP_PADDING
                             or abs(trajectory[i][1] - start_pose[1]) > self.MAP_PADDING
@@ -241,6 +242,15 @@ class SingleStepTrajectoryDataset(Dataset):
                     # Transform the trajectory points to be relative to the start pose of the map
                     target_pose[0:2] = target_pose[0:2] - start_pose[0:2]
                     goal_pose[0:2] = goal_pose[0:2] - start_pose[0:2]
+
+                    # Make sure target and goal pose are within the map
+                    if (
+                        abs(target_pose[0]) > self.MAP_PADDING
+                        or abs(target_pose[1]) > self.MAP_PADDING
+                        or abs(goal_pose[0]) > self.MAP_PADDING
+                        or abs(goal_pose[1]) > self.MAP_PADDING
+                    ):
+                        continue
 
                     # Find relative point to transform the map
                     zero_point = start_pose[0:2]
@@ -301,4 +311,6 @@ class SingleStepTrajectoryDataset(Dataset):
 
         map_view = map_view.unsqueeze(0).type(torch.float32)
 
+        # TARGET IS THE POSE TO PREDICT
+        # GOAL IS THE POSE TO USE AS INPUT
         return map_view, start_theta, target_pose, goal_pose

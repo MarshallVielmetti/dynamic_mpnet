@@ -59,7 +59,7 @@ class DynamicMPNet(nn.Module):
         self.prelu5 = nn.PReLU()
 
         self.fc6 = nn.Linear(128, SHAPE_DIM)
-        self.tanh = nn.Tanh()
+        # self.tanh = nn.Tanh()
 
     def forward(self, map, start_theta, goal) -> Tensor:
         """
@@ -75,9 +75,7 @@ class DynamicMPNet(nn.Module):
         Tensor
             Output tensor of shape (batch_size, 3 * output_steps)
         """
-
         self.print_debug("\n\n ##### Dynamics Forwards Pass ######")
-        self.print_debug(f"Input shape: {x.shape}")
 
         # Encode the map
         latent_map = self.encode(map)
@@ -123,7 +121,8 @@ class DynamicMPNet(nn.Module):
         x = self.dropout4(self.prelu4(self.fc4(x)))
 
         x = self.prelu5(self.fc5(x))
-        x = self.tanh(self.fc6(x))
+        # x = self.tanh(self.fc6(x))
+        x = self.fc6(x)
 
         self.print_debug(f"Motion Planning Net: Output shape: {x.shape}")
         return x
@@ -142,7 +141,7 @@ class SingleStepLoss(nn.Module):
         self,
         state_loss_function=nn.MSELoss(),
         latent_loss_function=nn.MSELoss(),
-        alpha=0.1,
+        alpha=1.0,
     ):
         """
         Initializes the loss function with the given parameters
@@ -161,7 +160,7 @@ class SingleStepLoss(nn.Module):
         self.latent_loss_function = latent_loss_function
         self.alpha = alpha
 
-    def forward(self, model, map, start_theta, goal_pose, target_pose):
+    def forward(self, model, map, start_theta, target_pose, goal_pose):
         """
         Forward pass of the loss function
 
@@ -179,8 +178,11 @@ class SingleStepLoss(nn.Module):
         reconstructed_map = model.decode(latent_map)
 
         # Calculate the state loss and latent loss
+        # print(f"Predicted: {predicted_step} vs. Target: {target_pose} ")
         state_loss = self.state_loss_function(predicted_step, target_pose)
         latent_loss = self.latent_loss_function(reconstructed_map, map)
+
+        # print(f"State Loss: {state_loss.item()} | Latent Loss: {latent_loss.item()}")
 
         # Combine the losses using the alpha parameter
         return state_loss + self.alpha * latent_loss
@@ -205,7 +207,7 @@ def train_dynamics_step(
         optimizer.zero_grad()
 
         # Compute the loss
-        loss = criterion(model, map, start_theta, goal_pose, target_pose)
+        loss = criterion(model, map, start_theta, target_pose, goal_pose)
 
         # Backpropagation
         loss.backward()
@@ -244,7 +246,7 @@ def train_model_single_step(
     model: DynamicMPNet,
     train_loader,
     val_loader,
-    lr: float = 0.001,
+    lr: float = 0.1,
     num_epochs: int = 100,
 ) -> tuple[list, list]:
     """
