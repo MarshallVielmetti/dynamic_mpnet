@@ -141,6 +141,7 @@ class MultiStepTrajectoryDataset(Dataset):
                 f"Map view shape mismatch: {map_view.shape} != {self.OUTPUT_MAP_SIZE}"
             )
 
+        # add batch dimension
         map_view = map_view.unsqueeze(0).type(torch.float32)
 
         return map_view, sampled_points
@@ -161,7 +162,7 @@ class SingleStepTrajectoryDataset(Dataset):
 
     def __init__(
         self,
-        maps: list[np.ndarray],
+        input_maps: list[np.ndarray],
         trajectories: list[list[np.ndarray]],
         OUTPUT_MAP_SIZE=12,
         SAMPLE_SKIPAHEAD=4,
@@ -186,9 +187,11 @@ class SingleStepTrajectoryDataset(Dataset):
         self.OUTPUT_MAP_SIZE = OUTPUT_MAP_SIZE
         self.SAMPLE_SKIPAHEAD = SAMPLE_SKIPAHEAD
         self.MAP_PADDING = OUTPUT_MAP_SIZE // 2
+        self.BASE_MAP_SIZE = 48
+        self.MAP_SIZE = self.BASE_MAP_SIZE + 2 * self.MAP_PADDING
 
         # pad maps and convert to tensor
-        self.maps = PAD_MAPS(maps, self.MAP_PADDING)
+        self.maps = PAD_MAPS(input_maps, self.MAP_PADDING)
 
         # map_id, map_start_idx, start_theta, target_pose, goal_pose
         # target pose is the pose to predict
@@ -208,6 +211,15 @@ class SingleStepTrajectoryDataset(Dataset):
                     # Pose to calculate offset from
                     start_pose = trajectory[sample_start]
                     start_theta = start_pose[2]  # only part of the start pose we need
+
+                    # Skip if the start pose is outside of the map (?)
+                    if (
+                        start_pose[0] < 0
+                        or start_pose[0] > self.BASE_MAP_SIZE
+                        or start_pose[1] < 0
+                        or start_pose[1] > self.BASE_MAP_SIZE
+                    ):
+                        continue
 
                     target_pose = trajectory[sample_start + self.SAMPLE_SKIPAHEAD]
                     goal_pose = None
@@ -232,8 +244,6 @@ class SingleStepTrajectoryDataset(Dataset):
 
                     # Find relative point to transform the map
                     zero_point = start_pose[0:2]
-                    zero_point[0] = int(zero_point[0])
-                    zero_point[1] = int(zero_point[1])
 
                     map_start_idx = (
                         zero_point[0] - self.OUTPUT_MAP_SIZE // 2 + self.MAP_PADDING,
@@ -243,6 +253,12 @@ class SingleStepTrajectoryDataset(Dataset):
                         int(map_start_idx[0]),
                         int(map_start_idx[1]),
                     )
+
+                    if (map_start_idx[0] < 0) or (map_start_idx[1] < 0):
+                        print(f"Map start index out of bounds: {map_start_idx}")
+                        print(f"MAP_ID: {map_id}")
+                        print(f"START POITN: {start_pose}")
+                        continue
 
                     # Convert anything that will be used as a model input to tensors
                     start_theta = torch.tensor(start_theta).float()

@@ -13,9 +13,7 @@ class DynamicMPNet(nn.Module):
     Full NN model for dynamic trajectory prediction
     """
 
-    def __init__(
-        self, map_dim: tuple, embedding_dim: int, output_steps: int, debug=False
-    ):
+    def __init__(self, map_dim: tuple, embedding_dim: int, debug=False):
         """
         Initializes the model with the given parameters
 
@@ -35,14 +33,13 @@ class DynamicMPNet(nn.Module):
         super(DynamicMPNet, self).__init__()
 
         self.embedding_dim = embedding_dim
-        self.output_steps = output_steps
         self.debug = debug
 
         self.encoder = CNNEncoder(map_dim, embedding_dim, debug=debug)
         self.decoder = CNNDecoder(map_dim, embedding_dim, debug=debug)
 
         # Define the model architecture
-        self.fc1 = nn.Linear(embedding_dim + 2 * SHAPE_DIM, 128)
+        self.fc1 = nn.Linear(embedding_dim + SHAPE_DIM + 1, 128)
         self.prelu1 = nn.PReLU()
         self.dropout1 = nn.Dropout(0.05)
 
@@ -61,7 +58,7 @@ class DynamicMPNet(nn.Module):
         self.fc5 = nn.Linear(256, 128)
         self.prelu5 = nn.PReLU()
 
-        self.fc6 = nn.Linear(128, SHAPE_DIM * output_steps)
+        self.fc6 = nn.Linear(128, SHAPE_DIM)
         self.tanh = nn.Tanh()
 
     def forward(self, map, start_theta, goal) -> Tensor:
@@ -111,7 +108,9 @@ class DynamicMPNet(nn.Module):
         """
         Runs the motion planning network
         """
+        start_theta = start_theta.unsqueeze(1)
         self.print_debug(f"Motion Planning Net: Latent map shape: {latent_map.shape}")
+        self.print_debug(f"Motion Planning Net: Start theta shape: {start_theta.shape}")
         self.print_debug(f"Motion Planning Net: Goal shape: {goal.shape}")
 
         # Combine the inputs into a single tensor
@@ -140,7 +139,10 @@ class SingleStepLoss(nn.Module):
     """
 
     def __init__(
-        self, state_loss_function=nn.MSELoss, latent_loss_function=nn.MSELoss, alpha=0.1
+        self,
+        state_loss_function=nn.MSELoss(),
+        latent_loss_function=nn.MSELoss(),
+        alpha=0.1,
     ):
         """
         Initializes the loss function with the given parameters
@@ -173,9 +175,12 @@ class SingleStepLoss(nn.Module):
         # Get the predicted trajectory from the model
         predicted_step = model.motion_planning_net(latent_map, start_theta, goal_pose)
 
+        # Get the reconstructed map from the latent representation
+        reconstructed_map = model.decode(latent_map)
+
         # Calculate the state loss and latent loss
         state_loss = self.state_loss_function(predicted_step, target_pose)
-        latent_loss = self.latent_loss_function(map, latent_map)
+        latent_loss = self.latent_loss_function(reconstructed_map, map)
 
         # Combine the losses using the alpha parameter
         return state_loss + self.alpha * latent_loss
