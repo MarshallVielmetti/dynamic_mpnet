@@ -13,7 +13,9 @@ class DynamicMPNet(nn.Module):
     Full NN model for dynamic trajectory prediction
     """
 
-    def __init__(self, map_dim: tuple, embedding_dim: int, output_steps: int, debug=False):
+    def __init__(
+        self, map_dim: tuple, embedding_dim: int, output_steps: int, debug=False
+    ):
         """
         Initializes the model with the given parameters
 
@@ -124,7 +126,7 @@ class DynamicMPNet(nn.Module):
         x = self.prelu5(self.fc5(x))
         x = self.tanh(self.fc6(x))
 
-        self.print_debug(f"Motion Planning Net: Output shape: {x.shape}")   
+        self.print_debug(f"Motion Planning Net: Output shape: {x.shape}")
         return x
 
     def print_debug(self, message):
@@ -132,58 +134,75 @@ class DynamicMPNet(nn.Module):
             print(message)
 
 
+class SingleStepLoss(nn.Module):
+    """
+    Loss function for the single step prediction
+    """
+
+    def __init__(
+        self, state_loss_function=nn.MSELoss, latent_loss_function=nn.MSELoss, alpha=0.1
+    ):
+        """
+        Initializes the loss function with the given parameters
+
+        Parameters
+        ----------
+        state_loss_function : nn.Module
+            The loss function for the state prediction
+        latent_loss_function : nn.Module
+            The loss function for the latent prediction
+        alpha : float
+            The weight for the latent loss
+        """
+        super(SingleStepLoss, self).__init__()
+        self.state_loss_function = state_loss_function
+        self.latent_loss_function = latent_loss_function
+        self.alpha = alpha
+
+    def forward(self, model, map, start_theta, goal_pose, target_pose):
+        """
+        Forward pass of the loss function
+
+        Uses the two terms
+        - State Loss: MSE loss between predicted next state and ground truth
+        - Reconstruction Loss: MSE between original and reconstructed map
+        """
+        # Get the latent representation of the map
+        latent_map = model.encode(map)
+
+        # Get the predicted trajectory from the model
+        predicted_step = model.motion_planning_net(latent_map, start_theta, goal_pose)
+
+        # Calculate the state loss and latent loss
+        state_loss = self.state_loss_function(predicted_step, target_pose)
+        latent_loss = self.latent_loss_function(map, latent_map)
+
+        # Combine the losses using the alpha parameter
+        return state_loss + self.alpha * latent_loss
+
+
 def train_dynamics_step(
     model: DynamicMPNet,
-    encoder: CNNEncoder,
     train_loader,
     optimizer: torch.optim.Optimizer,
-    criterion: nn.Module = nn.MSELoss(),
+    criterion: nn.Module = SingleStepLoss(),
 ) -> float:
     """
     Trains the dynamics model for one step
-
-    Parameters
-    ----------
-    model : DynamicMPNet
-        The dynamics model
-    encoder : CNNEncoder
-        The encoder model
-    train_loader : DataLoader
-        The training data loader
-    optimizer : torch.optim.Optimizer
-        The optimizer
-    criterion : nn.Module
-        The loss function
-    Returns
-    -------
-    float
-        The average loss for the step
     """
     train_loss = 0
     model.train()
 
-    for batch_idx, (map, trajectory) in enumerate(train_loader):
-
-        # Encode the map
-        latent = encoder(map)  # B x 32
-
-        start = trajectory[:, :, 0].reshape(-1, SHAPE_DIM)  # B x SHAPE
-        goal = trajectory[:, :, -1].reshape(-1, SHAPE_DIM)  # B x SHAPE
-
-        input = torch.cat(
-            (latent, start, goal),
-            dim=1,
-        )  # B x (32 + 2 * SHAPE_DIM)
-
-        output = model(input)  # B x (SHAPE_DIM * output_steps)
-
-        # Transform the output to the correct shape - B x SHAPE_DIM x output_steps
-        output = output.view(-1, SHAPE_DIM, model.output_steps)
-
-        # Run the optimization step
+    for batch_idx, (map, start_theta, target_pose, goal_pose) in enumerate(
+        train_loader
+    ):
+        # Reset the optimizer
         optimizer.zero_grad()
-        loss = criterion(output, trajectory)
 
+        # Compute the loss
+        loss = criterion(model, map, start_theta, goal_pose, target_pose)
+
+        # Backpropagation
         loss.backward()
         optimizer.step()
 
@@ -194,67 +213,42 @@ def train_dynamics_step(
 
 def validate_dynamics_step(
     model: DynamicMPNet,
-    encoder: CNNEncoder,
     val_loader,
-    criterion: nn.Module = nn.MSELoss(),
+    criterion: nn.Module = SingleStepLoss(),
 ) -> float:
     """
     Performs a single validation step of the dynamics model
-
-    Parameters
-    ----------
-    model : DynamicMPNet
-        The dynamics model
-    encoder : CNNEncoder
-        The encoder model
-    val_loader : DataLoader
-        The validation data loader
-    criterion : nn.Module
-        The loss function
     """
-
     val_loss = 0
-    encoder.eval()
     model.eval()
 
     with torch.no_grad():
-        for batch_idx, (map, trajectory) in enumerate(val_loader):
-            latent = encoder(map)
+        for batch_idx, (map, start_theta, target_pose, goal_pose) in enumerate(
+            val_loader
+        ):
+            # Compute the loss
+            loss = criterion(model, map, start_theta, target_pose, goal_pose)
 
-            start = trajectory[:, :, 0].reshape(-1, SHAPE_DIM)  # B x SHAPE
-            goal = trajectory[:, :, -1].reshape(-1, SHAPE_DIM)  # B x SHAPE
-
-            input = torch.cat(
-                (latent, start, goal),
-                dim=1,
-            )
-
-            output = model(input)
-            output = output.view(-1, SHAPE_DIM, model.output_steps)
-
-            loss = criterion(output, trajectory)
-
+            # increment
             val_loss += loss.item()
 
     return val_loss / len(val_loader)
 
 
-def train_model_multi_step(
+def train_model_single_step(
     model: DynamicMPNet,
-    encoder: CNNEncoder,
     train_loader,
     val_loader,
     lr: float = 0.001,
     num_epochs: int = 100,
 ) -> tuple[list, list]:
     """
-    Trains the dynamics model using the given parameters and premade encoder
+    Trains the dynamics model using the given parameters on single step data
     """
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-5)
 
-    # Loss Function
-    criterion = nn.MSELoss()
+    criterion = SingleStepLoss()
 
     train_losses = []
     val_losses = []
@@ -262,14 +256,12 @@ def train_model_multi_step(
     for epoch_i in range(num_epochs):
         train_loss_i = train_dynamics_step(
             model,
-            encoder,
             train_loader,
             optimizer,
             criterion=criterion,
         )
-        val_loss_i = validate_dynamics_step(
-            model, encoder, val_loader, criterion=criterion
-        )
+
+        val_loss_i = validate_dynamics_step(model, val_loader, criterion=criterion)
 
         if epoch_i % 10 == 0:
             print(
@@ -280,8 +272,3 @@ def train_model_multi_step(
         val_losses.append(val_loss_i)
 
     return train_losses, val_losses
-
-
-def train_model_single_step(
-    model: model
-)
