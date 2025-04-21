@@ -3,7 +3,7 @@ from torch import Tensor
 import torch.nn as nn
 import torch.nn.functional as F
 
-from map_encoder import CNNEncoder
+from map_encoder import CNNEncoder, CNNDecoder
 
 SHAPE_DIM = 3
 
@@ -13,7 +13,7 @@ class DynamicMPNet(nn.Module):
     Full NN model for dynamic trajectory prediction
     """
 
-    def __init__(self, embedding_dim: int, output_steps: int, debug=False):
+    def __init__(self, map_dim: tuple, embedding_dim: int, output_steps: int, debug=False):
         """
         Initializes the model with the given parameters
 
@@ -21,6 +21,8 @@ class DynamicMPNet(nn.Module):
 
         Parameters
         ----------
+        map_dim : int
+            The dimension of the map input
         embedding_dim : int
             The dimension of the embedded map
         output_steps : int
@@ -33,6 +35,9 @@ class DynamicMPNet(nn.Module):
         self.embedding_dim = embedding_dim
         self.output_steps = output_steps
         self.debug = debug
+
+        self.encoder = CNNEncoder(map_dim, embedding_dim, debug=debug)
+        self.decoder = CNNDecoder(map_dim, embedding_dim, debug=debug)
 
         # Define the model architecture
         self.fc1 = nn.Linear(embedding_dim + 2 * SHAPE_DIM, 128)
@@ -57,7 +62,7 @@ class DynamicMPNet(nn.Module):
         self.fc6 = nn.Linear(128, SHAPE_DIM * output_steps)
         self.tanh = nn.Tanh()
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, map, start_theta, goal) -> Tensor:
         """
         Forward pass of the dynamics network
 
@@ -72,8 +77,44 @@ class DynamicMPNet(nn.Module):
             Output tensor of shape (batch_size, 3 * output_steps)
         """
 
-        # self.print_debug("\n\n ##### Dynamics Forwards Pass ######")
-        # self.print_debug(f"Input shape: {x.shape}")
+        self.print_debug("\n\n ##### Dynamics Forwards Pass ######")
+        self.print_debug(f"Input shape: {x.shape}")
+
+        # Encode the map
+        latent_map = self.encode(map)
+
+        # Forward pass through the motion planning network
+        return self.motion_planning_net(latent_map, start_theta, goal)
+
+    def encode(self, map):
+        """
+        Encodes the map using the CNNEncoder
+        """
+        self.print_debug(f"Encode: Map shape: {map.shape}")
+        # Reshape the map to the correct shape
+        return self.encoder(map)
+
+    def decode(self, latent):
+        """
+        Decodes the latent representation using the CNNDecoder
+        """
+        self.print_debug(f"Decode: Latent shape: {latent.shape}")
+        # Reshape the latent to the correct shape
+        reconstructed_map = self.decoder(latent)
+
+        self.print_debug(f"Decode: Reconstructed map shape: {reconstructed_map.shape}")
+        return reconstructed_map
+
+    def motion_planning_net(self, latent_map, start_theta, goal):
+        """
+        Runs the motion planning network
+        """
+        self.print_debug(f"Motion Planning Net: Latent map shape: {latent_map.shape}")
+        self.print_debug(f"Motion Planning Net: Goal shape: {goal.shape}")
+
+        # Combine the inputs into a single tensor
+        x = torch.cat((latent_map, start_theta, goal), dim=1)
+        self.print_debug(f"Motion Planning Net: Combined input shape: {x.shape}")
 
         x = self.dropout1(self.prelu1(self.fc1(x)))
         x = self.dropout2(self.prelu2(self.fc2(x)))
@@ -82,8 +123,8 @@ class DynamicMPNet(nn.Module):
 
         x = self.prelu5(self.fc5(x))
         x = self.tanh(self.fc6(x))
-        # self.print_debug(f"Output shape: {x.shape}")
 
+        self.print_debug(f"Motion Planning Net: Output shape: {x.shape}")   
         return x
 
     def print_debug(self, message):
@@ -198,7 +239,7 @@ def validate_dynamics_step(
     return val_loss / len(val_loader)
 
 
-def train_model(
+def train_model_multi_step(
     model: DynamicMPNet,
     encoder: CNNEncoder,
     train_loader,
@@ -239,3 +280,8 @@ def train_model(
         val_losses.append(val_loss_i)
 
     return train_losses, val_losses
+
+
+def train_model_single_step(
+    model: model
+)
