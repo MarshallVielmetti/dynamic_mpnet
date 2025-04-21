@@ -66,7 +66,7 @@ Following the example set in class, to debug my model I overfit it to a handful 
 
 ## Full Dataset
 After then training the model on the full dataset, it was able to get decent (?) performance. Here is an example of the model evaluated on 5 elements of the validation dataset:
-[!Validation Perf](images/500_epoch_validation_performance.png)
+![Validation Perf](images/500_epoch_validation_performance.png)
 
 ## References:
 
