@@ -2,6 +2,7 @@ import os
 import numpy as np
 from torch.utils.data import Dataset, DataLoader
 from torch import Tensor
+import torch.nn.functional as F
 import torch
 
 
@@ -56,9 +57,17 @@ class MultiStepTrajectoryDataset(Dataset):
         trajectories : list[list[Tensor]]
             The trajectories. The first index corresponds to the map, the second index
             is ID of the trajectory. Each point on the trajectory is a 3x1 Tensor (x, y, theta)
+
+        Dataset structure:
+        - map_id: The ID of the map
+        - map_start_idx: the bottom left corner of the map to return
+        - start_theta: The starting theta of the trajectory
+        - sampled_points: The trajectory points (3D tensor)
+        - goal_pose: The goal pose (3D tensor)
         """
         print(f"Creating MultiStepTrajectoryDatatset")
 
+        self.BASE_MAP_SIZE = 48
         self.OUTPUT_MAP_SIZE = OUTPUT_MAP_SIZE
         self.MULTI_STEP_SIZE = MULTI_STEP_SIZE
         self.MAP_PADDING = OUTPUT_MAP_SIZE // 2
@@ -77,20 +86,46 @@ class MultiStepTrajectoryDataset(Dataset):
                 for sample_start in range(
                     0, len(trajectory) - MULTI_STEP_SIZE, MULTI_STEP_SAMPLE_SKIP
                 ):
-                    sampled_points = trajectory[
-                        sample_start : sample_start + MULTI_STEP_SIZE
-                    ]
 
-                    if sampled_points.shape[1] != 3:
-                        print(f"Sampled points shape mismatch: {sampled_points.shape}")
+                    start_pose = trajectory[sample_start]
+                    start_theta = start_pose[2]  # only part of the start pose we need
+
+                    # Skip if the start pose is outside of the map (?)
+                    if (
+                        start_pose[0] < 0
+                        or start_pose[0] > self.BASE_MAP_SIZE
+                        or start_pose[1] < 0
+                        or start_pose[1] > self.BASE_MAP_SIZE
+                    ):
                         continue
 
+                    # Progress down the trajectory to find the first point outside of
+                    # the 12x12 padded map, then return the last point inside the map
+                    offset = None
+                    for i in range(sample_start, len(trajectory)):
+                        if (
+                            abs(trajectory[i][0] - start_pose[0]) > self.MAP_PADDING
+                            or abs(trajectory[i][1] - start_pose[1]) > self.MAP_PADDING
+                        ):
+                            offset = i - 1
+                            break
+
+                    # If trajectory doesn't leave the map at this point, break
+                    if offset is None:
+                        break
+
+                    # Sample the trajectory points
+                    sample_traj = trajectory[sample_start:offset]
+
+                    non_int_zero_point = np.array(start_pose)
+                    non_int_zero_point[2] = 0
+
                     # Transform the trajectory points to be relative to the center of the map
-                    zero_point = sampled_points[0]
+                    zero_point = start_pose[0:2]
                     zero_point[0] = int(zero_point[0])
                     zero_point[1] = int(zero_point[1])
 
-                    sampled_points = sampled_points - zero_point
+                    sample_traj = sample_traj - non_int_zero_point
 
                     map_start_idx = (
                         zero_point[0] - self.OUTPUT_MAP_SIZE // 2 + self.MAP_PADDING,
@@ -101,29 +136,27 @@ class MultiStepTrajectoryDataset(Dataset):
                         int(map_start_idx[1]),
                     )
 
-                    for point in sampled_points:
+                    for point in sample_traj:
                         if (
                             abs(point[0]) > self.MAP_PADDING
                             or abs(point[1]) > self.MAP_PADDING
                         ):
-                            continue  # skip this sampling / don't add to dataset
+                            continue  # skip this sample / don't add to dataset
 
                     # Convert sampled_points to a Tensor
-                    sampled_points = torch.from_numpy(sampled_points).float().T
+                    start_theta = torch.tensor(start_theta).float()
+                    sample_traj = torch.from_numpy(sample_traj).float().T
 
                     # Store the trajectory and its corresponding map
-                    self.data_points.append((map_id, map_start_idx, sampled_points))
+                    self.data_points.append((map_id, map_start_idx, sample_traj))
 
     def __len__(self):
         return len(self.data_points)
 
     def __getitem__(self, idx):
         map_idx = self.data_points[idx][0]
-        # print(f"Map ID: {map_idx}")
         map_start_idx = self.data_points[idx][1]
-        # print(f"Map Start: {map_start_idx}")
-        sampled_points = self.data_points[idx][2]
-        # print(f"Got sample points")
+        sample_traj = self.data_points[idx][2]
 
         # Extract the map and trajectory points
         map_view = self.maps[map_idx][
@@ -131,20 +164,18 @@ class MultiStepTrajectoryDataset(Dataset):
             map_start_idx[1] : map_start_idx[1] + self.OUTPUT_MAP_SIZE,
         ]
 
-        if (map_view.shape[0] != self.OUTPUT_MAP_SIZE) or (
-            map_view.shape[1] != self.OUTPUT_MAP_SIZE
-        ):
-            print(f"Map view shape mismatch: {map_view.shape}")
-            print(f"MAP_ID: {map_idx}")
-            print(f"MAP_START: {map_start_idx}")
-            raise ValueError(
-                f"Map view shape mismatch: {map_view.shape} != {self.OUTPUT_MAP_SIZE}"
-            )
+        # Pad the map to (24, 24) with 1s (occupied)
+        map_view = F.pad(
+            map_view,
+            (self.MAP_PADDING, self.MAP_PADDING, self.MAP_PADDING, self.MAP_PADDING),
+            "constant",
+            1,
+        )
 
         # add batch dimension
         map_view = map_view.unsqueeze(0).type(torch.float32)
 
-        return map_view, sampled_points
+        return (map_view, sample_traj)
 
 
 class SingleStepTrajectoryDataset(Dataset):
@@ -239,6 +270,8 @@ class SingleStepTrajectoryDataset(Dataset):
                     if goal_pose is None:
                         break
 
+                    # Create a version of start pose with a zero theta
+
                     # Transform the trajectory points to be relative to the start pose of the map
                     target_pose[0:2] = target_pose[0:2] - start_pose[0:2]
                     goal_pose[0:2] = goal_pose[0:2] - start_pose[0:2]
@@ -253,7 +286,8 @@ class SingleStepTrajectoryDataset(Dataset):
                         continue
 
                     # Find relative point to transform the map
-                    zero_point = start_pose[0:2]
+                    zero_point = np.array(start_pose)
+                    zero_point[2] = 0
 
                     map_start_idx = (
                         zero_point[0] - self.OUTPUT_MAP_SIZE // 2 + self.MAP_PADDING,
