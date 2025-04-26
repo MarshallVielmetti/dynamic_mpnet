@@ -117,7 +117,7 @@ class MultiStepTrajectoryDataset(Dataset):
                     # Sample the trajectory points
                     sample_traj = trajectory[sample_start:offset]
 
-                    non_int_zero_point = np.array(start_pose)
+                    non_int_zero_point = np.array(start_pose, dtype=np.float32)
                     non_int_zero_point[2] = 0
 
                     # Transform the trajectory points to be relative to the center of the map
