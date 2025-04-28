@@ -68,6 +68,10 @@ Following the example set in class, to debug my model I overfit it to a handful 
 After then training the model on the full dataset, it was able to get decent (?) performance. Here is an example of the model evaluated on 5 elements of the validation dataset:
 ![Validation Perf](images/500_epoch_validation_performance.png)
 
+## Nonlinear MPC
+To test the model, I implemented nonlinear model predictive control (NMPC) to solve the trajectory tracking problem with a dubins vehicle. An example of the vehicle tracking a dubins path is shown:
+![Dubins Tracking](images/nmpc_tracking.gif)
+
 ## References:
 
 [1] S. Karaman and E. Frazzoli, “Sampling-based algorithms for optimal motion planning,” The International Journal of Robotics Research, vol. 30, no. 7, pp. 846–894, Jun. 2011, doi: 10.1177/0278364911406761.

@@ -11,7 +11,7 @@ class MultiStepLoss(nn.Module):
         self,
         state_loss_function=nn.MSELoss(),
         latent_loss_function=nn.MSELoss(),
-        alpha=0.1,
+        alpha=0.01,
         debug=False,
     ):
         """
