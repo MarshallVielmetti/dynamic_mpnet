@@ -47,7 +47,6 @@ class NMPCSolver:
         path : np.ndarray
             The desired path to follow (shape: [3, N+1])
         """
-        print("Solving NMPC...")
         opti = ca.Opti()
 
         X = opti.variable(3, self.N + 1)
