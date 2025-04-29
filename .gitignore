@@ -1,4 +1,5 @@
 /venv
+/submission
 
 /code/__pycache__ 
 rrt_data.tgz
