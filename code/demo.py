@@ -1,135 +1,225 @@
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
+import os
 
+from dynamic_mpnet_planner import DynamicMPNetPlanner
 from dynamic_mpnet import DynamicMPNet
 from grid_environment import GridEnvironment
 from occupancy_grid_generator import OccupancyGridGenerator
+from nonlinear_mpc import NMPCSolver
 from dubins import Dubins
+
+import io
+import imageio
 
 MAP_DIM = (12, 12)
 EMBEDDING_DIM = 32
 NUM_OBSTACLES = 4
 
+SIM_STEPS = 250
+N = 10
+
 
 DUBINS = Dubins(radius=2, point_separation=0.1)
 
 
-def check_path_collision(env, trajectory, gaol):
-    """
-    Check if the trajectory collides with any obstacles in the environment.
-    """
-    for i in range(len(trajectory) - 1):
-        x_curr = trajectory[i]
-        x_next = trajectory[i + 1]
+def simulate_nmpc(env, path, start, goal):
 
-        # Try to fit a dubins path between the two points
-        path, _ = DUBINS.dubins_path(x_curr, x_next)
+    path = np.stack(path)
 
-        # Make sure every point in path is collision free
-        for point in path:
-            if not env.is_free(point[0], point[1]):
-                return False
+    current_state = np.array(start)
+    executed_path = [current_state[:2]]  # Store for visualization
 
-    return True
+    frames = []
+
+    prev_idx = 0
+
+    for step in range(SIM_STEPS):
+        if step % 10 == 0:
+            print(f"Step {step}/{SIM_STEPS}")
+
+        # Find the closest point on the path to the current state
+        distances = np.linalg.norm(path[prev_idx:, :2] - current_state[:2], axis=1)
+        closest_idx = np.argmin(distances) + prev_idx
+        prev_idx = closest_idx
+
+        N_trim = min(N, len(path) - closest_idx - 1)
+
+        # Create the NMPC solver
+        nmpc_solver = NMPCSolver(
+            N=N_trim,
+            dt=0.1,
+            v_s=1.0,
+            Q=np.diag([10.0, 10.0, 1.0]),
+            R=0.1,
+            Qf=np.diag([2000.0, 2000.0, 20.0]),
+            u_min=(-np.pi / 3),
+            u_max=(np.pi / 3),
+        )
+
+        # Solve the NMPC problem
+        xref = np.zeros((3, N_trim + 1))
+
+        # Extract the next N+1 points (or remaining points)
+        ref_points = path[closest_idx : closest_idx + N_trim + 1]
+
+        # populate the reference trajectory
+        xref[0, :] = ref_points[:, 0]
+        xref[1, :] = ref_points[:, 1]
+
+        # Calculate the reference heading angles
+        for i in range(N_trim + 1):
+            if i < N_trim:
+                dx = ref_points[i + 1, 0] - ref_points[i, 0]
+                dy = ref_points[i + 1, 1] - ref_points[i, 1]
+                xref[2, i] = np.arctan2(dy, dx)
+            else:
+                xref[2, i] = xref[2, i - 1]
+
+        # Solve the NMPC problem
+        X_sol, u_sol = nmpc_solver.solve(current_state, xref)
+
+        # Apply the first control input to update the state
+        v = nmpc_solver.v_s
+        steering = u_sol[0]  # first control input
+        dt = nmpc_solver.dt
+
+        next_state = np.array(
+            [
+                current_state[0] + v * np.cos(current_state[2]) * dt,
+                current_state[1] + v * np.sin(current_state[2]) * dt,
+                current_state[2] + steering * dt,
+            ]
+        )
+
+        # store the position
+        executed_path.append(next_state[:2])
+
+        # update the current state
+        current_state = next_state
+
+        if np.linalg.norm(current_state[:2] - goal[:2]) < 0.5:
+            print("Reached the goal!")
+            break
+
+        fig, ax = plt.subplots()
+        env.plot(display=False)
+        ax.plot(xref[0, :], xref[1, :], "ro", markersize=3, label="Reference Points")
+        ax.plot(
+            X_sol[0, :], X_sol[1, :], "b-", linewidth=2, label="Predicted Trajectory"
+        )
+        ax.plot(path[:, 0], path[:, 1], "g-", linewidth=2, label="Reference Path")
+
+        # plot the executed path
+        ax.plot(
+            [p[0] for p in executed_path],
+            [p[1] for p in executed_path],
+            "k-",
+            linewidth=3,
+            label="Executed Path",
+        )
+
+        # plot the current pose
+        ax.scatter(
+            current_state[0],
+            current_state[1],
+            color="blue",
+            s=100,
+            marker="o",
+            label="Current State",
+        )
+
+        # draw the vehicle orientation
+        arrow_length = 0.3
+        ax.arrow(
+            current_state[0],
+            current_state[1],
+            arrow_length * np.cos(current_state[2]),
+            arrow_length * np.sin(current_state[2]),
+            head_width=0.1,
+            head_length=0.15,
+            fc="blue",
+            ec="blue",
+        )
+
+        # plot the start and goal poses
+        ax.scatter(start[0], start[1], color="green", s=100, marker="o", label="Start")
+        ax.scatter(goal[0], goal[1], color="red", s=100, marker="o", label="Goal")
+        ax.legend(loc="upper left")
+        ax.axis("equal")
+        ax.grid(True)
+        ax.set_title(f"NMPC Dubins Path Tracking - Step {step}")
+
+        fig.tight_layout()
+
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png")
+        buf.seek(0)
+        frames.append(imageio.imread(buf))
+        buf.close()
+        plt.close(fig)
+
+    imageio.mimsave("nmpc_simulation.gif", frames, fps=20)
 
 
 def main():
-    print("Expected Time to Run: 30 seconds")
 
-    # Load the model
-    model_path = "code/models/dynamic_mpnet.pth"
-    model = DynamicMPNet(MAP_DIM, EMBEDDING_DIM)
-    model.load_state_dict(torch.load(model_path))
+    # Load in the model
+    model = DynamicMPNet(MAP_DIM, EMBEDDING_DIM, debug=False)
+
+    model_save_path = os.path.join(
+        os.getcwd(), "code/models/dynamic_mpnet_multistep_trained_2.pth"
+    )
+    model.load_state_dict(torch.load(model_save_path))
     model.eval()
 
-    ## Generate a random map using an input seed ##
-    random_seed = 1
-    np.random.seed(random_seed)
-    ogm_generator = OccupancyGridGenerator(MAP_DIM, NUM_OBSTACLES)
-    map = ogm_generator.sample()
-    map = np.pad(
-        map,
-        ((6, 6), (6, 6)),
-        mode="constant",
-        constant_values=1,
-    )
+    # Create the planner
+    planner = DynamicMPNetPlanner(model, dubins_radius=1.0)
 
-    map_tensor = torch.as_tensor(map, dtype=torch.float32).unsqueeze(0)
+    # Set the random seed for reproducibility
+    # np.random.seed(130)
+    # np.random.seed(310)
+    # np.random.seed(440)
+    # np.random.seed(4234)
 
-    # generate map
-    env = GridEnvironment(map)
+    # Generate a random oversized map
+    map_generator = OccupancyGridGenerator((24, 24), 16)
+    map = map_generator.sample()
 
-    # sample start and goal positions from free space
-    # start = torch.as_tensor(
-    #     env.random_free_space(include_theta=True), dtype=torch.float32
-    # )
-    # start = np.array([12, 12, 0])
-    start = torch.tensor([12, 12, np.pi / 2], dtype=torch.float32)
-    goal = torch.as_tensor(
-        env.random_free_space(include_theta=True), dtype=torch.float32
-    )
+    # Create a grid environment object
+    grid_env = GridEnvironment(map)
 
-    # Plot the env, start, and goal
-    # env.plot(close=False, display=False)
-    # plt.scatter(start[0], start[1], c="green", marker="o", label="Start")
-    # plt.scatter(goal[0], goal[1], c="red", marker="x", label="Goal")
-    # plt.legend()
-    # plt.show()
+    start = grid_env.random_free_space()
+    goal = grid_env.random_free_space()
 
-    goal_reached = False
-    trajectory = []
-    trajectory.append(start)
+    start = np.asarray(start)
+    goal = np.asarray(goal)
 
-    while False and not check_path_collision(env, trajectory, goal):
-        # predict next point using most recent point
-        next = model(map_tensor, curr_point[2], goal)
-        next = next.squeeze(0).cpu().detach().numpy()
-        print(f"Next point: {next}")
+    while np.linalg.norm(start - goal) < 15 or np.linalg.norm(start - goal) > 50:
+        goal = grid_env.random_free_space()
+        goal = np.asarray(goal)
 
-        # steer to point (fit dubins and verify collision free)
-        # add the point to the trajectory
+    # Solve the path
+    path, ref_pts = planner.plan(grid_env, start, goal)
 
-        # try to connect steer point to goal
-        # if can, addgoal to trajectory and return
+    if path is None:
+        return 1
 
-    trajectory.append(goal)
+    print(f"Found a path between points {start} and {goal}")
 
-    # Plot the environment
-    env.plot(close=False, display=False)
-    plt.scatter(start[0], start[1], c="green", marker="o", label="Start")
-    plt.scatter(goal[0], goal[1], c="red", marker="x", label="Goal")
+    path = np.stack(path)
 
-    # plot all points on the trajectory as an arrow
-    for point in trajectory:
-        plt.quiver(
-            point[0],
-            point[1],
-            np.cos(point[2]),
-            np.sin(point[2]),
-            color="black",
-            angles="xy",
-            scale_units="xy",
-            scale=0.5,
-        )
+    simulate_nmpc(grid_env, path, start, goal)
 
-    # plot a simple dubins path for reference
-    simple_path, _ = DUBINS.dubins_path(start, goal)
-    plt.plot(
-        simple_path[:, 0],
-        simple_path[:, 1],
-        color="blue",
-        label="Dubins Path",
-    )
+    print(f"Wrote simulation to nmpc_simulation.gif")
 
-    # plot the trajectory, interpolating dubins path between points
-    # each interior point of the trajectory should be an arrow
-
-    plt.legend()
-    plt.show()
-
-    # could also run RRT* to find a path? And record the timing information? If I end up having time or caring enough
+    return 0
 
 
 if __name__ == "__main__":
+    print(f"Expected Run Time: <1 minute")
+
+    # Set the random seed for reproducibility
+    np.random.seed(1823)
     main()

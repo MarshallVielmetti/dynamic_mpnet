@@ -53,36 +53,6 @@ class MultiStepLoss(nn.Module):
         self.print_debug(f"\tmap_views_tensor shape: {map_views_tensor.shape}")
         self.print_debug(f"\tLatent maps shape: {latent_maps.shape}")
 
-        ## DOES NOT SUPPORT BATCH DIMENSIONS BECAUSE
-        ## TRAJECTORIES CAN BE OF DIFFERENT LENGTHS
-
-        # Get the goal pose that will be fed as input to the model
-
-        # rollout_poses = []
-        # curr_pose = trajectory[:, 0]
-        # for i in range(1, trajectory.shape[1]):
-        #     # Get a view of the map around the curr_pose
-        #     int_pose = curr_pose.int()
-
-        #     map_view = map[
-        #         :,
-        #         int_pose[0] + 6 : int_pose[0] + 18,
-        #         int_pose[1] + 6 : int_pose[1] + 18,
-        #     ]
-
-        #     curr_pose_zero_theta = curr_pose
-        #     curr_pose_zero_theta[2] = 0
-
-        #     predicted_step = model(
-        #         map_view.unsqueeze(0),
-        #         curr_pose[2].unsqueeze(0).unsqueeze(0),
-        #         (goal_pose - curr_pose_zero_theta).unsqueeze(0),
-        #     ).squeeze(0)
-
-        #     # Append the predicted step to the rollout poses
-        #     rollout_poses.append(predicted_step + curr_pose_zero_theta)
-        #     curr_pose = predicted_step
-
         # Batch predict the ground truth rollout
         start_pose_thetas = trajectory[2, :-1].unsqueeze(1)  # Length x 1
         goal_pose_diffs = goal_pose.unsqueeze(1) - trajectory[:, :-1]

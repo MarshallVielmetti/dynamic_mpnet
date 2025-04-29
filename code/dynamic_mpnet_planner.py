@@ -39,6 +39,7 @@ class DynamicMPNetPlanner:
             The planned trajectory.
         """
         tau = [x_from[0:2]]
+        raw_pts = [x_from]
         x_curr = x_from
 
         # Transform the map into an egocentric frame, where the "from" state is the center of the map
@@ -60,6 +61,7 @@ class DynamicMPNetPlanner:
             # if the trajectory is collision free, append it to the existing path
             # tau.append(x_temp[1:])
             tau.extend(tau_temp[1:])
+            raw_pts.append(x_temp)
 
             # Try to connect the last point of the trajectory to the goal
             tau_goal = self.steer(x_temp, x_goal, env)
@@ -68,11 +70,12 @@ class DynamicMPNetPlanner:
             if tau_goal is not None:
                 # tau.append(tau_goal[1:])
                 tau.extend(tau_goal[1:])
-                return tau
+                raw_pts.append(x_goal)
+                return tau, raw_pts
 
             x_curr = x_temp
 
-        return None
+        return None, None
 
     def prep_grid(self, x_from: np.ndarray, map: np.ndarray):
         """

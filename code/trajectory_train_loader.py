@@ -115,7 +115,7 @@ class MultiStepTrajectoryDataset(Dataset):
                         break
 
                     # Sample the trajectory points
-                    sample_traj = trajectory[sample_start:offset]
+                    sample_traj = trajectory[sample_start:offset:MULTI_STEP_SAMPLE_SKIP]
 
                     non_int_zero_point = np.array(start_pose, dtype=np.float32)
                     non_int_zero_point[2] = 0
